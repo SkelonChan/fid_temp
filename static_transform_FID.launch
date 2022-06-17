@@ -1,0 +1,7 @@
+  <node pkg="tf" type="static_transform_publisher" name="footprint_to_link"      args="0 0 0 0 0 0 base_footprint base_link 100" />
+  <node pkg="tf" type="static_transform_publisher" name="footprint_to_rtk_front" args="0.4188 0 0.22 0 0 0 base_footprint rtk_front_link 100" />
+  <node pkg="tf" type="static_transform_publisher" name="footprint_to_rtk_rear"  args="-0.278 0 0.298 0 0 0 base_footprint rtk_rear_link 100" />
+  <node pkg="tf" type="static_transform_publisher" name="footprint_to_zed"       args="0.112 0 0.366 0 0 0 base_footprint zed_link 100" />
+  <node pkg="tf" type="static_transform_publisher" name="footprint_to_zed_gyro"  args="0.112 0 0.366 0 0 0 base_footprint zed_gyro_link 100" />
+  <node pkg="tf" type="static_transform_publisher" name="footprint_to_gyro"      args="-0.043 0.093 0.3504 -1.5708 0 0 base_footprint gyro_link 100" />
+  <!-- <node pkg="tf" type="static_transform_publisher" name="footprint_to_laser" args="0 0 0 0 0 0 base_footprint laser_link 100" /> -->
