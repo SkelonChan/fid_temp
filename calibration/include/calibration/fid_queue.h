@@ -20,6 +20,7 @@ public:
     T remove();                   //元素出队
     void clear();                 //清空队列
     const T &getFront() const;    //访问队首元素
+    const T &getrear() const;
 
     //测试队列状态
     int getLength() const;        //求队列长度（元素个数）
@@ -96,6 +97,11 @@ T Queue<T,SIZE>::remove() {                    //删除队首元素，并返回�
 template<class T,int SIZE>
 const T &Queue<T,SIZE>::getFront() const {     //访问队首元素（返回其值）
     return list[front];
+}
+
+template<class T,int SIZE>
+const T &Queue<T,SIZE>::getrear() const {     //访问队首元素（返回其值）
+    return list[rear];
 }
 
 template<class T,int SIZE>

@@ -8,16 +8,15 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
+
 using namespace std;
-//定义消息格式生成的转化矩阵类型的数组，以保存接收到的历史信息
-Eigen::Matrix4f gps_homo[3];
-Eigen::Matrix4f vo_homo[3];
-Eigen::Matrix4f odo_homo[3];
+
 
 nav_msgs::Odometry odo_msg;
 nav_msgs::Odometry gps_msg;
 nav_msgs::Odometry vo_msg;
 sensor_msgs::Imu imu_msg;
+
 
 Queue<Eigen::Matrix4f> *gps_queue_homo = new Queue<Eigen::Matrix4f>();
 Queue<Eigen::Matrix4f> *vo_queue_homo = new Queue<Eigen::Matrix4f>();
@@ -50,7 +49,6 @@ public:
     Eigen::Matrix4f cacluate_trans(const Eigen::Matrix4f &t1,const Eigen::Matrix4f &t2,
                                    const Eigen::Matrix4f &t3, const Eigen::Matrix4f &t4);
     Eigen::Vector3d rotationMatrixToEulerAngles(const Eigen::Matrix3f &R);
-    Eigen::Matrix3f trans2orien(const Eigen::Matrix4f &t1);
 
 };
 
@@ -98,36 +96,81 @@ void fid_calib::odo_sub_cb(const nav_msgs::Odometry::ConstPtr &p)
     if(gps_queue_homo->isFull() && odo_queue_homo->isFull() && vo_queue_homo->isFull())//如果链表满足三个元素
     {
         //对由链表读入到数组中的数据进行计算相对变换矩阵
-        Eigen::Matrix4f odo2gps1 = cacluate_trans(gps_trans_array[0],gps_trans_array[1],odo_trans_array[0],odo_trans_array[1]);
-        Eigen::Matrix4f odo2gps2 = cacluate_trans(gps_trans_array[1],gps_trans_array[2],odo_trans_array[1],odo_trans_array[2]);
-        Eigen::Matrix4f odo2gps3 = cacluate_trans(gps_trans_array[0],gps_trans_array[2],odo_trans_array[0],odo_trans_array[2]);
-        Eigen::Matrix4f odo2vo1 = cacluate_trans(vo_trans_array[0],vo_trans_array[1],odo_trans_array[0],odo_trans_array[1]);
-        Eigen::Matrix4f odo2vo2 = cacluate_trans(vo_trans_array[1],vo_trans_array[2],odo_trans_array[1],odo_trans_array[2]);
-        Eigen::Matrix4f odo2vo3 = cacluate_trans(vo_trans_array[0],vo_trans_array[2],odo_trans_array[0],odo_trans_array[2]);
+        Eigen::Matrix4f gps2odo1 = cacluate_trans(odo_trans_array[0],odo_trans_array[1],gps_trans_array[0],gps_trans_array[1]);
+        Eigen::Matrix4f gps2odo2 = cacluate_trans(odo_trans_array[1],odo_trans_array[2],gps_trans_array[1],gps_trans_array[2]);
+        Eigen::Matrix4f gps2odo3 = cacluate_trans(odo_trans_array[0],odo_trans_array[2],gps_trans_array[0],gps_trans_array[2]);
+        Eigen::Matrix4f vo2odo1 = cacluate_trans(odo_trans_array[0],odo_trans_array[1],vo_trans_array[0],vo_trans_array[1]);
+        Eigen::Matrix4f vo2odo2 = cacluate_trans(odo_trans_array[1],odo_trans_array[2],vo_trans_array[1],vo_trans_array[2]);
+        Eigen::Matrix4f vo2odo3 = cacluate_trans(odo_trans_array[0],odo_trans_array[2],vo_trans_array[0],vo_trans_array[2]);
         //需要把旋转矩阵提取出来
-        // odo2gps1.eulerAngles(2,1,0); // ZYX顺序，yaw,pitch,roll
-        Eigen::Vector3d odo2gps_rpy1 = rotationMatrixToEulerAngles(trans2orien(odo2gps1)); //RPY XYZ
-        Eigen::Vector3d odo2gps_rpy2 = rotationMatrixToEulerAngles(trans2orien(odo2gps2)); //RPY XYZ
-        Eigen::Vector3d odo2gps_rpy3 = rotationMatrixToEulerAngles(trans2orien(odo2gps3)); //RPY XYZ
-        Eigen::Vector3d odo2vo_rpy1 = rotationMatrixToEulerAngles(trans2orien(odo2vo1)); //RPY XYZ
-        Eigen::Vector3d odo2vo_rpy2 = rotationMatrixToEulerAngles(trans2orien(odo2vo2)); //RPY XYZ
-        Eigen::Vector3d odo2vo_rpy3 = rotationMatrixToEulerAngles(trans2orien(odo2vo3)); //RPY XYZ
+        // gps2odo1.eulerAngles(2,1,0); // ZYX顺序，yaw,pitch,roll
+        //得到两个坐标系之间的相对RPY角度
+        Eigen::Vector3d gps2odo_rpy1 = rotationMatrixToEulerAngles(gps2odo1.block<3,3>(0,0)); //RPY XYZ
+        Eigen::Vector3d gps2odo_rpy2 = rotationMatrixToEulerAngles(gps2odo2.block<3,3>(0,0)); //RPY XYZ
+        Eigen::Vector3d gps2odo_rpy3 = rotationMatrixToEulerAngles(gps2odo3.block<3,3>(0,0)); //RPY XYZ
+        Eigen::Vector3d vo2odo_rpy1 = rotationMatrixToEulerAngles(vo2odo1.block<3,3>(0,0)); //RPY XYZ
+        Eigen::Vector3d vo2odo_rpy2 = rotationMatrixToEulerAngles(vo2odo2.block<3,3>(0,0)); //RPY XYZ
+        Eigen::Vector3d vo2odo_rpy3 = rotationMatrixToEulerAngles(vo2odo3.block<3,3>(0,0)); //RPY XYZ
 
-        //trans2orien(odo2gps_rpy1,odo2gps1);
-        // eulerAngle1 = bokcc.eulerAngles(2,1,0); // ZYX顺序，yaw,pitch,roll
-        // odo2gps1.block<3,3>(0,0);
+        //由得到的两个坐标系之间的旋转矩阵，对采取的三个点，可以得到三个旋转矩阵，取其平均值
+        //再将得到的gps->odo的旋转矩阵乘以最新的坐标位姿，得到最新位姿在odo下的坐标关系，vo同理
+        //gps_trans_odo与vo_trans_odo为gps坐标系下的位姿与vo下的位姿在odo下的关系
+        Eigen::Matrix4f gps_trans_odo = (gps2odo1+gps2odo2+gps2odo3)/3 * gps_queue_homo->getrear();
+        Eigen::Matrix4f vo_trans_odo = (vo2odo1+vo2odo2+vo2odo3)/3 * vo_queue_homo->getrear();
+
+        //
+        Eigen::Vector3f gps_linear,vo_linear;
+        Eigen::Vector3f gps_angular,vo_angular;
+        gps_linear << gps_msg.twist.twist.linear.x,gps_msg.twist.twist.linear.y,gps_msg.twist.twist.linear.z;
+        vo_linear << vo_msg.twist.twist.linear.x,vo_msg.twist.twist.linear.y,vo_msg.twist.twist.linear.z;
+        gps_angular << gps_msg.twist.twist.angular.x,gps_msg.twist.twist.angular.y,gps_msg.twist.twist.angular.z;
+        vo_angular << vo_msg.twist.twist.angular.x,vo_msg.twist.twist.angular.y,vo_msg.twist.twist.angular.z;
+
+        //计算线速度，角速度在odo下的变化 v'= R* v   w' = R * w
+        Eigen::Vector3f gps_linear_new = gps_trans_odo.block<3,3>(0,0) * gps_linear;
+        Eigen::Vector3f gps_angular_new = gps_trans_odo.block<3,3>(0,0) * gps_angular;
+        Eigen::Vector3f vo_linear_new = vo_trans_odo.block<3,3>(0,0) * vo_linear;
+        Eigen::Vector3f vo_angular_new = vo_trans_odo.block<3,3>(0,0) * vo_angular;
 
 
+        Eigen::Quaternionf gps_trans_odo_quater(gps_trans_odo.block<3,3>(0,0));
+        Eigen::Quaternionf vo_trans_odo_quater(vo_trans_odo.block<3,3>(0,0));
+        
+        gps_msg.pose.pose.orientation.w = gps_trans_odo_quater.coeffs()(0,0);//（w,x,y,z)
+        gps_msg.pose.pose.orientation.x = gps_trans_odo_quater.coeffs()(0,1);//（w,x,y,z)
+        gps_msg.pose.pose.orientation.y = gps_trans_odo_quater.coeffs()(0,2);//（w,x,y,z)
+        gps_msg.pose.pose.orientation.z = gps_trans_odo_quater.coeffs()(0,3);//（w,x,y,z)
+        gps_msg.pose.pose.position.x = gps_trans_odo(0,3);
+        gps_msg.pose.pose.position.y = gps_trans_odo(1,3);
+        gps_msg.pose.pose.position.z = gps_trans_odo(2,3);
+        gps_msg.twist.twist.angular.x = gps_angular_new(0);
+        gps_msg.twist.twist.angular.y = gps_angular_new(1);
+        gps_msg.twist.twist.angular.z = gps_angular_new(2);
+        gps_msg.twist.twist.linear.x = gps_linear_new(0);
+        gps_msg.twist.twist.linear.y = gps_linear_new(1);
+        gps_msg.twist.twist.linear.z = gps_linear_new(2);
+
+        vo_msg.pose.pose.orientation.w = vo_trans_odo_quater.coeffs()(0,0);//（w,x,y,z)
+        vo_msg.pose.pose.orientation.x = vo_trans_odo_quater.coeffs()(0,1);//（w,x,y,z)
+        vo_msg.pose.pose.orientation.y = vo_trans_odo_quater.coeffs()(0,2);//（w,x,y,z)
+        vo_msg.pose.pose.orientation.z = vo_trans_odo_quater.coeffs()(0,3);//（w,x,y,z)
+        vo_msg.pose.pose.position.x = vo_trans_odo(0,3);
+        vo_msg.pose.pose.position.y = vo_trans_odo(1,3);
+        vo_msg.pose.pose.position.z = vo_trans_odo(2,3);
+        vo_msg.twist.twist.angular.x = vo_angular_new(0);
+        vo_msg.twist.twist.angular.y = vo_angular_new(1);
+        vo_msg.twist.twist.angular.z = vo_angular_new(2);
+        vo_msg.twist.twist.linear.x = vo_linear_new(0);
+        vo_msg.twist.twist.linear.y = vo_linear_new(1);
+        vo_msg.twist.twist.linear.z = vo_linear_new(2);
+
+        
+        cali_gps_pub.publish(gps_msg);
+        cali_vo_pub.publish(vo_msg);
+        cali_imu_pub.publish(imu_msg);
+        cali_odo_pub.publish(odo_msg);
+        
     }
-}
-
-Eigen::Matrix3f fid_calib::trans2orien(const Eigen::Matrix4f &t1)
-{
-    Eigen::Matrix3f ts;
-    ts << t1(0,0),t1(0,1),t1(0,2),
-          t1(1,0),t1(1,1),t1(1,2),
-          t1(2,0),t1(2,1),t1(2,2);
-    return ts;
 }
 
 bool isRotationMatirx(Eigen::Matrix3f R)
@@ -198,10 +241,10 @@ Eigen::Matrix4f fid_calib::cacluate_trans(const Eigen::Matrix4f &t1, const Eigen
 Eigen::Matrix4f fid_calib::qua2rota(const nav_msgs::Odometry &tmp_msg)
 {
     Eigen::Matrix3f tmp_rotation;
-    Eigen::Quaternionf tmp_orien((float)tmp_msg.pose.pose.orientation.x,
+    Eigen::Quaternionf tmp_orien((float)tmp_msg.pose.pose.orientation.w,
+                                (float)tmp_msg.pose.pose.orientation.x,
                                 (float)tmp_msg.pose.pose.orientation.y,
-                                (float)tmp_msg.pose.pose.orientation.z,
-                                (float)tmp_msg.pose.pose.orientation.w);
+                                (float)tmp_msg.pose.pose.orientation.z);
     tmp_rotation = tmp_orien.toRotationMatrix();
     Eigen::Matrix4f tmp_homo = Eigen::Matrix4f::Identity();
     tmp_homo.block<3,3>(0,0) = tmp_rotation;//对从（0，0）开始插入大小为3*3的矩阵
