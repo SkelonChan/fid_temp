@@ -38,9 +38,9 @@ private:
 public:
     fid_calib( );
     ~fid_calib();
-    void gps_sub_cb(const nav_msgs::Odometry::ConstPtr &p){msgtrans(gps_msg,p);}
-    void vo_sub_cb(const nav_msgs::Odometry::ConstPtr &p){msgtrans(vo_msg,p);}
-    void imu_sub_cb(const sensor_msgs::Imu::ConstPtr &s){msgtrans2(imu_msg,s);}
+    void gps_sub_cb(const nav_msgs::Odometry::ConstPtr &p){ROS_INFO("GET THE gps_msg");msgtrans(gps_msg,p);}
+    void vo_sub_cb(const nav_msgs::Odometry::ConstPtr &p){ROS_INFO("GET THE vo_msg");msgtrans(vo_msg,p);}
+    void imu_sub_cb(const sensor_msgs::Imu::ConstPtr &s){ROS_INFO("GET THE imu_msg");msgtrans2(imu_msg,s);}
     void odo_sub_cb(const nav_msgs::Odometry::ConstPtr &p);
     void msgtrans(nav_msgs::Odometry &msg,const nav_msgs::Odometry::ConstPtr &tp);
     void msgtrans2(sensor_msgs::Imu &msg,const sensor_msgs::Imu::ConstPtr &ts);
@@ -54,10 +54,10 @@ public:
 
 fid_calib::fid_calib()
 {
-    gps_sub = _nh.subscribe<nav_msgs::Odometry>("gps_odom",3,&fid_calib::gps_sub_cb,this);
-    vo_sub = _nh.subscribe<nav_msgs::Odometry>("vo_odom",3,&fid_calib::vo_sub_cb,this);
-    imu_sub = _nh.subscribe<sensor_msgs::Imu>("imu_odom",3,&fid_calib::imu_sub_cb,this);
-    odo_sub = _nh.subscribe<nav_msgs::Odometry>("odo_odom",3,&fid_calib::odo_sub_cb,this);
+    gps_sub = _nh.subscribe<nav_msgs::Odometry>("/gps_odom",3,&fid_calib::gps_sub_cb,this);
+    vo_sub = _nh.subscribe<nav_msgs::Odometry>("/zed2/zed_node/odom",3,&fid_calib::vo_sub_cb,this);
+    imu_sub = _nh.subscribe<sensor_msgs::Imu>("/zed2/zed_node/imu/data",3,&fid_calib::imu_sub_cb,this);
+    odo_sub = _nh.subscribe<nav_msgs::Odometry>("wheel_odom",3,&fid_calib::odo_sub_cb,this);
     cali_gps_pub = _nh.advertise<nav_msgs::Odometry>("/cali_gps_odom",3);
     cali_vo_pub = _nh.advertise<nav_msgs::Odometry>("/cali_vo_odom",3);
     cali_imu_pub = _nh.advertise<sensor_msgs::Imu>("/cali_imu_odom",3);
@@ -71,6 +71,7 @@ fid_calib::~fid_calib()
 
 void fid_calib::msgtrans(nav_msgs::Odometry &msg,const nav_msgs::Odometry::ConstPtr &tp)
 {
+    
     msg.child_frame_id = tp->child_frame_id;
     msg.header = tp->header;
     msg.pose = tp->pose;
@@ -90,6 +91,7 @@ void fid_calib::msgtrans2(sensor_msgs::Imu &msg,const sensor_msgs::Imu::ConstPtr
 
 void fid_calib::odo_sub_cb(const nav_msgs::Odometry::ConstPtr &p)
 {
+    ROS_INFO("GET THE wheel_odom_msg");
     msgtrans(odo_msg,p);//把信息提取到对应的全局变量中
     cacluate_homo();//计算当前坐标位姿的齐次变换矩阵
     //是否一定是同步帧的信息 TO DO 
@@ -260,7 +262,7 @@ int main(int argc, char * argv[])
 {
     ros::init(argc, argv, "fid_calibration_node");
 
-
+    fid_calib fid;
     ros::spin();
     return 0;
 }

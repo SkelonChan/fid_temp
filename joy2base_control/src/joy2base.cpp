@@ -54,21 +54,6 @@ joy2base::~joy2base()
 
 
 
-int main(int argc, char * argv[])
-{
-    ros::init(argc, argv, "joy2base");
-
-    //set param in launch default is in there
-    ros::param::param<int>("motor_pwm_maximum",pwm_max,1700);
-    ros::param::param<int>("motor_pwm_min",pwm_min,1300);
-    
-    joy2base joymsg;
-    
-
-    ros::spin();
-    return 0;
-}
-
 
 void joy2base::joymsg_cb(const sensor_msgs::Joy::ConstPtr &joymsg)
 {
@@ -117,8 +102,21 @@ void joy2base::joymsg_cb(const sensor_msgs::Joy::ConstPtr &joymsg)
     }
     motor_pwm_value.data = motor_pwm;
     servo_num_value.data = servo_num;
-
-    pub_motor.publish(motor_pwm_value);
-    pub_servo.publish(servo_num_value);
 }
 
+int main(int argc, char * argv[])
+{
+    ros::init(argc, argv, "joy2base");
+
+    //set param in launch default is in there
+    ros::param::param<int>("motor_pwm_maximum",pwm_max,1700);
+    ros::param::param<int>("motor_pwm_min",pwm_min,1300);
+    
+    joy2base joymsg;
+    
+    ros::Rate r(25);
+    
+    r.sleep();
+    ros::spin();
+    return 0;
+}
