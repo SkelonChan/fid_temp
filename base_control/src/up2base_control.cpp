@@ -88,7 +88,7 @@ int main(int argc, char * argv[])
     ros::init(argc, argv, "fid_calibration_node");
     ros::param::param<int>("limit_pwm",pwm_limit,150);
 
-
+    up2base_control base1;
 
     return 0;
 }
