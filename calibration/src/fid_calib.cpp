@@ -71,7 +71,7 @@ fid_calib::~fid_calib()
 
 void fid_calib::msgtrans(nav_msgs::Odometry &msg,const nav_msgs::Odometry::ConstPtr &tp)
 {
-    
+    //将接收到的里程计信息保存到新的全局信息文件中
     msg.child_frame_id = tp->child_frame_id;
     msg.header = tp->header;
     msg.pose = tp->pose;
@@ -79,6 +79,7 @@ void fid_calib::msgtrans(nav_msgs::Odometry &msg,const nav_msgs::Odometry::Const
 }
 void fid_calib::msgtrans2(sensor_msgs::Imu &msg,const sensor_msgs::Imu::ConstPtr &ts)
 {
+    //将接收到的IMU信息保存到新的全局信息文件中
     msg.angular_velocity = ts->angular_velocity;
     msg.angular_velocity_covariance = ts->angular_velocity_covariance;
     msg.header = ts->header;
@@ -138,6 +139,7 @@ void fid_calib::odo_sub_cb(const nav_msgs::Odometry::ConstPtr &p)
         Eigen::Quaternionf gps_trans_odo_quater(gps_trans_odo.block<3,3>(0,0));
         Eigen::Quaternionf vo_trans_odo_quater(vo_trans_odo.block<3,3>(0,0));
         
+        //由Eigen的四元数得到 wxyz
         gps_msg.pose.pose.orientation.w = gps_trans_odo_quater.coeffs()(0,0);//（w,x,y,z)
         gps_msg.pose.pose.orientation.x = gps_trans_odo_quater.coeffs()(0,1);//（w,x,y,z)
         gps_msg.pose.pose.orientation.y = gps_trans_odo_quater.coeffs()(0,2);//（w,x,y,z)
@@ -151,11 +153,13 @@ void fid_calib::odo_sub_cb(const nav_msgs::Odometry::ConstPtr &p)
         gps_msg.twist.twist.linear.x = gps_linear_new(0);
         gps_msg.twist.twist.linear.y = gps_linear_new(1);
         gps_msg.twist.twist.linear.z = gps_linear_new(2);
+        gps_msg.header.frame_id = "origin";
+        gps_msg.child_frame_id = "gps_odom";
 
-        vo_msg.pose.pose.orientation.w = vo_trans_odo_quater.coeffs()(0,0);//（w,x,y,z)
-        vo_msg.pose.pose.orientation.x = vo_trans_odo_quater.coeffs()(0,1);//（w,x,y,z)
-        vo_msg.pose.pose.orientation.y = vo_trans_odo_quater.coeffs()(0,2);//（w,x,y,z)
-        vo_msg.pose.pose.orientation.z = vo_trans_odo_quater.coeffs()(0,3);//（w,x,y,z)
+        vo_msg.pose.pose.orientation.w = vo_trans_odo_quater.coeffs()(0);//（w,x,y,z)
+        vo_msg.pose.pose.orientation.x = vo_trans_odo_quater.coeffs()(1);//（w,x,y,z)
+        vo_msg.pose.pose.orientation.y = vo_trans_odo_quater.coeffs()(2);//（w,x,y,z)
+        vo_msg.pose.pose.orientation.z = vo_trans_odo_quater.coeffs()(3);//（w,x,y,z)
         vo_msg.pose.pose.position.x = vo_trans_odo(0,3);
         vo_msg.pose.pose.position.y = vo_trans_odo(1,3);
         vo_msg.pose.pose.position.z = vo_trans_odo(2,3);
@@ -165,8 +169,11 @@ void fid_calib::odo_sub_cb(const nav_msgs::Odometry::ConstPtr &p)
         vo_msg.twist.twist.linear.x = vo_linear_new(0);
         vo_msg.twist.twist.linear.y = vo_linear_new(1);
         vo_msg.twist.twist.linear.z = vo_linear_new(2);
+        vo_msg.header.frame_id = "origin";
+        vo_msg.child_frame_id = "vo_odom";
 
-        
+        imu_msg.header.frame_id = "origin";
+
         cali_gps_pub.publish(gps_msg);
         cali_vo_pub.publish(vo_msg);
         cali_imu_pub.publish(imu_msg);
@@ -239,7 +246,7 @@ Eigen::Matrix4f fid_calib::cacluate_trans(const Eigen::Matrix4f &t1, const Eigen
 
 
 
-
+//由四元数转旋转矩阵
 Eigen::Matrix4f fid_calib::qua2rota(const nav_msgs::Odometry &tmp_msg)
 {
     Eigen::Matrix3f tmp_rotation;
@@ -255,6 +262,8 @@ Eigen::Matrix4f fid_calib::qua2rota(const nav_msgs::Odometry &tmp_msg)
     tmp_homo(2,3) = tmp_msg.pose.pose.position.z;
     return tmp_homo;
 }
+
+
 
 
 
