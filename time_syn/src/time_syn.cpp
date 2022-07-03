@@ -7,7 +7,7 @@
 
 
 //对GPS VO的频率进行预差分
-
+bool if_vo;
 //预保存订阅信息
 sensor_msgs::Imu imu_msg;
 nav_msgs::Odometry odo_msg;
@@ -45,7 +45,7 @@ public:
     ~time_syn();
     void gps_cb(const nav_msgs::Odometry::ConstPtr &p){msgtrans(gps_msg,p);last_time_imu = p->header.stamp.toSec();};
     void vo_cb(const nav_msgs::Odometry::ConstPtr &p){msgtrans(vo_msg,p);};
-    void odo_cb(const nav_msgs::Odometry::ConstPtr &p){msgtrans(odo_msg,p);};
+    void odo_cb(const nav_msgs::Odometry::ConstPtr &p){msgtrans(odo_msg,p); pub_odo.publish(odo_msg);};
     void imu_cb(const sensor_msgs::Imu::ConstPtr &p);
     void msgtrans(nav_msgs::Odometry &msg,const nav_msgs::Odometry::ConstPtr &tp);
     void msgtrans2(sensor_msgs::Imu &msg,const sensor_msgs::Imu::ConstPtr &ts);
@@ -59,10 +59,10 @@ time_syn::time_syn()
     sub_gps = _nh.subscribe<nav_msgs::Odometry>("/gps_odom",3,&time_syn::gps_cb,this);
     sub_odo = _nh.subscribe<nav_msgs::Odometry>("/wheel_odom",3,&time_syn::odo_cb,this);
     sub_vo = _nh.subscribe<nav_msgs::Odometry>("/zed2/zed_node/odom",3,&time_syn::vo_cb,this);
-    sub_imu = _nh.subscribe<sensor_msgs::Imu>("/zed2/zed_node/imu/data",3,&time_syn::imu_cb,this);
-    pub_gps = _nh.advertise<nav_msgs::Odometry>("/syn_gps",5);
-    pub_odo = _nh.advertise<nav_msgs::Odometry>("/syn_odo",5);
-    pub_vo = _nh.advertise<nav_msgs::Odometry>("/syn_vo",5);
+    sub_imu = _nh.subscribe<sensor_msgs::Imu>("/zed2/zed_node/imu/data",1,&time_syn::imu_cb,this);
+    pub_gps = _nh.advertise<nav_msgs::Odometry>("/syn_gps",2);
+    pub_odo = _nh.advertise<nav_msgs::Odometry>("/syn_odo",2);
+    pub_vo = _nh.advertise<nav_msgs::Odometry>("/syn_vo",2);
 }
 
 time_syn::~time_syn()
@@ -92,10 +92,10 @@ void time_syn::msgtrans2(sensor_msgs::Imu &msg,const sensor_msgs::Imu::ConstPtr 
 void time_syn::imu_cb(const sensor_msgs::Imu::ConstPtr &p)
 {
     msgtrans2(imu_msg,p);
+    t_gap = p->header.stamp.toSec() - last_time_imu;
     if (gps_msg.header.stamp.toSec() < p->header.stamp.toSec())
     {
         //使用运动学方程外推，根据imu的频率得到对应时间辍下的gps/vo值
-        t_gap = p->header.stamp.toSec() - last_time_imu;
         gps_msg.header.stamp = p->header.stamp;
         gps_msg.pose.pose.position.x = gps_msg.pose.pose.position.x + gps_msg.twist.twist.linear.x * t_gap + 0.5 * p->linear_acceleration.x * pow(t_gap,2);
         gps_msg.pose.pose.position.y = gps_msg.pose.pose.position.y + gps_msg.twist.twist.linear.y * t_gap + 0.5 * p->linear_acceleration.y * pow(t_gap,2);
@@ -103,21 +103,21 @@ void time_syn::imu_cb(const sensor_msgs::Imu::ConstPtr &p)
         gps_msg.twist.twist.linear.x = gps_msg.twist.twist.linear.x + p->linear_acceleration.x * t_gap;
         gps_msg.twist.twist.linear.y = gps_msg.twist.twist.linear.y + p->linear_acceleration.y * t_gap;
         gps_msg.twist.twist.linear.z = gps_msg.twist.twist.linear.z + p->linear_acceleration.z * t_gap;
-        gps_msg.twist.twist.angular.x = gps_msg.twist.twist.angular.x + p->angular_velocity.x * t_gap;
-        gps_msg.twist.twist.angular.y = gps_msg.twist.twist.angular.y + p->angular_velocity.y * t_gap;
-        gps_msg.twist.twist.angular.z = gps_msg.twist.twist.angular.z + p->angular_velocity.z * t_gap;
+        //
+        ang_vel ang_acc;//计算角加速度
+        ang_acc.x_angular_vel = (last_imu_ang_vel.x_angular_vel - p->angular_velocity.x)/ t_gap;
+        ang_acc.y_angular_vel = (last_imu_ang_vel.y_angular_vel - p->angular_velocity.y)/ t_gap;
+        ang_acc.z_angular_vel = (last_imu_ang_vel.z_angular_vel - p->angular_velocity.z)/ t_gap;
+        //vt = v0+ a*t;
+        gps_msg.twist.twist.angular.x = gps_msg.twist.twist.angular.x + ang_acc.x_angular_vel * t_gap;
+        gps_msg.twist.twist.angular.y = gps_msg.twist.twist.angular.y + ang_acc.y_angular_vel * t_gap;
+        gps_msg.twist.twist.angular.z = gps_msg.twist.twist.angular.z + ang_acc.z_angular_vel * t_gap;
         
         //对GPS得到的四元数进行更新
         //Eigen::Vector3d imu_rpy = qua2rpy(*p);
         Eigen::Vector3d gps_rpy = qua2rpy(gps_msg);
 
-        
-        ang_vel ang_acc;
-        ang_acc.x_angular_vel = (last_imu_ang_vel.x_angular_vel - p->angular_velocity.x)/ t_gap;
-        ang_acc.y_angular_vel = (last_imu_ang_vel.y_angular_vel - p->angular_velocity.y)/ t_gap;
-        ang_acc.z_angular_vel = (last_imu_ang_vel.z_angular_vel - p->angular_velocity.z)/ t_gap;
-        
-
+    
         gps_rpy(0) = gps_rpy(0) + p->angular_velocity.x * t_gap + 0.5 * ang_acc.x_angular_vel * pow(t_gap,2);
         gps_rpy(1) = gps_rpy(1) + p->angular_velocity.y * t_gap + 0.5 * ang_acc.y_angular_vel * pow(t_gap,2);
         gps_rpy(2) = gps_rpy(2) + p->angular_velocity.z * t_gap + 0.5 * ang_acc.z_angular_vel * pow(t_gap,2);
@@ -127,12 +127,47 @@ void time_syn::imu_cb(const sensor_msgs::Imu::ConstPtr &p)
         gps_msg.pose.pose.orientation.x = gps_qua_new.coeffs()(1);
         gps_msg.pose.pose.orientation.y = gps_qua_new.coeffs()(2);
         gps_msg.pose.pose.orientation.z = gps_qua_new.coeffs()(3);
-        
+    }
+        // vo_msg信息接受频率要低于imu_msg
+if(if_vo)
+    if (vo_msg.header.stamp.toSec() < p->header.stamp.toSec())
+    {
+        vo_msg.header.stamp = p->header.stamp;
+        vo_msg.pose.pose.position.x = vo_msg.pose.pose.position.x + vo_msg.twist.twist.linear.x * t_gap + 0.5 * p->linear_acceleration.x * pow(t_gap,2);
+        vo_msg.pose.pose.position.y = vo_msg.pose.pose.position.y + vo_msg.twist.twist.linear.y * t_gap + 0.5 * p->linear_acceleration.y * pow(t_gap,2);
+        vo_msg.pose.pose.position.z = vo_msg.pose.pose.position.z + vo_msg.twist.twist.linear.y * t_gap + 0.5 * p->linear_acceleration.y * pow(t_gap,2);
+        vo_msg.twist.twist.linear.x = vo_msg.twist.twist.linear.x + p->linear_acceleration.x * t_gap;
+        vo_msg.twist.twist.linear.y = vo_msg.twist.twist.linear.y + p->linear_acceleration.y * t_gap;
+        vo_msg.twist.twist.linear.z = vo_msg.twist.twist.linear.z + p->linear_acceleration.z * t_gap;
 
+
+        ang_vel ang_acc;//计算角加速度
+        ang_acc.x_angular_vel = (last_imu_ang_vel.x_angular_vel - p->angular_velocity.x)/ t_gap;
+        ang_acc.y_angular_vel = (last_imu_ang_vel.y_angular_vel - p->angular_velocity.y)/ t_gap;
+        ang_acc.z_angular_vel = (last_imu_ang_vel.z_angular_vel - p->angular_velocity.z)/ t_gap;
+        
+        vo_msg.twist.twist.angular.x = vo_msg.twist.twist.angular.x + ang_acc.x_angular_vel * t_gap;
+        vo_msg.twist.twist.angular.y = vo_msg.twist.twist.angular.y + ang_acc.x_angular_vel * t_gap;
+        vo_msg.twist.twist.angular.z = vo_msg.twist.twist.angular.z + ang_acc.x_angular_vel * t_gap;
+
+
+        Eigen::Vector3d vo_rpy = qua2rpy(vo_msg);
+
+        vo_rpy(0) = vo_rpy(0) + p->angular_velocity.x * t_gap + 0.5 * ang_acc.x_angular_vel * pow(t_gap,2);
+        vo_rpy(1) = vo_rpy(1) + p->angular_velocity.y * t_gap + 0.5 * ang_acc.y_angular_vel * pow(t_gap,2);
+        vo_rpy(2) = vo_rpy(2) + p->angular_velocity.z * t_gap + 0.5 * ang_acc.z_angular_vel * pow(t_gap,2);
+
+        Eigen::Quaterniond vo_qua_new = rpy2qua(vo_rpy);
+        vo_msg.pose.pose.orientation.w = vo_qua_new.coeffs()(0);//由Eigen下的quaterniond转为单独的数，正则表达式 提取非零系数
+        vo_msg.pose.pose.orientation.x = vo_qua_new.coeffs()(1);
+        vo_msg.pose.pose.orientation.y = vo_qua_new.coeffs()(2);
+        vo_msg.pose.pose.orientation.z = vo_qua_new.coeffs()(3);
+    }
+        
 //TO DO 
 //对于初始imu时间 last_ang_vel的选取再次确认
-//完成对VO的预插值处理
-//信息的发布
+//完成对VO的预插值处理 （down)
+//信息的发布(down)
 //calibration中  得到两个坐标系之间的相对RPY角度 的信息的使用
 //重新对本时间同步部分的梳理， 对在线位姿相对标定的重新梳理
 
@@ -142,7 +177,11 @@ void time_syn::imu_cb(const sensor_msgs::Imu::ConstPtr &p)
         last_imu_ang_vel.z_angular_vel = p->angular_velocity.z;
 
         last_time_imu = p->header.stamp.toSec();
-    }
+
+        pub_gps.publish(gps_msg);
+        if(if_vo)    
+            pub_vo.publish(vo_msg);
+        pub_imu.publish(imu_msg);
     
 }
 
@@ -195,9 +234,10 @@ int main(int argc, char* argv[])
 {
     ros::init(argc, argv, "time_synchronization");
     initialize();
+    ros::param::param<bool>("if_vo",if_vo,true);
 
 
-
+    time_syn syn;
 
     ros::spin();
 }
