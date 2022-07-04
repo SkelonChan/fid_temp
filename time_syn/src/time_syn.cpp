@@ -63,6 +63,7 @@ time_syn::time_syn()
     pub_gps = _nh.advertise<nav_msgs::Odometry>("/syn_gps",2);
     pub_odo = _nh.advertise<nav_msgs::Odometry>("/syn_odo",2);
     pub_vo = _nh.advertise<nav_msgs::Odometry>("/syn_vo",2);
+    pub_imu = _nh.advertise<sensor_msgs::Imu>("/syn_imu",3);
 }
 
 time_syn::~time_syn()
@@ -168,7 +169,7 @@ if(if_vo)
 //对于初始imu时间 last_ang_vel的选取再次确认
 //完成对VO的预插值处理 （down)
 //信息的发布(down)
-//calibration中  得到两个坐标系之间的相对RPY角度 的信息的使用
+//calibration中  得到两个坐标系之间的相对RPY角度 的信息的使用(down)
 //重新对本时间同步部分的梳理， 对在线位姿相对标定的重新梳理
 
         //更新last的信息
