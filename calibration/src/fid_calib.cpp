@@ -48,16 +48,16 @@ public:
     Eigen::Matrix4f qua2rota(const nav_msgs::Odometry &tmp_msg);
     Eigen::Matrix4f cacluate_trans(const Eigen::Matrix4f &t1,const Eigen::Matrix4f &t2,
                                    const Eigen::Matrix4f &t3, const Eigen::Matrix4f &t4);
-    // Eigen::Vector3d rotationMatrixToEulerAngles(const Eigen::Matrix3f &R);
+    Eigen::Vector3d rotationMatrixToEulerAngles(const Eigen::Matrix3f &R);
 
 };
 
 fid_calib::fid_calib()
 {
-    gps_sub = _nh.subscribe<nav_msgs::Odometry>("/syn_gps",3,&fid_calib::gps_sub_cb,this);
-    vo_sub = _nh.subscribe<nav_msgs::Odometry>("/syn_vo",3,&fid_calib::vo_sub_cb,this);
-    imu_sub = _nh.subscribe<sensor_msgs::Imu>("/syn_imu",3,&fid_calib::imu_sub_cb,this);
-    odo_sub = _nh.subscribe<nav_msgs::Odometry>("syn_odo",3,&fid_calib::odo_sub_cb,this);
+    gps_sub = _nh.subscribe<nav_msgs::Odometry>("/gps_odom",3,&fid_calib::gps_sub_cb,this);
+    vo_sub = _nh.subscribe<nav_msgs::Odometry>("/zed2/zed_node/odom",3,&fid_calib::vo_sub_cb,this);
+    imu_sub = _nh.subscribe<sensor_msgs::Imu>("/zed2/zed_node/imu/data",3,&fid_calib::imu_sub_cb,this);
+    odo_sub = _nh.subscribe<nav_msgs::Odometry>("wheel_odom",3,&fid_calib::odo_sub_cb,this);
     cali_gps_pub = _nh.advertise<nav_msgs::Odometry>("/cali_gps_odom",3);
     cali_vo_pub = _nh.advertise<nav_msgs::Odometry>("/cali_vo_odom",3);
     cali_imu_pub = _nh.advertise<sensor_msgs::Imu>("/cali_imu_odom",3);
@@ -108,20 +108,20 @@ void fid_calib::odo_sub_cb(const nav_msgs::Odometry::ConstPtr &p)
         //需要把旋转矩阵提取出来
         // gps2odo1.eulerAngles(2,1,0); // ZYX顺序，yaw,pitch,roll
         //得到两个坐标系之间的相对RPY角度
-            // Eigen::Vector3d gps2odo_rpy1 = rotationMatrixToEulerAngles(gps2odo1.block<3,3>(0,0)); //RPY XYZ
-            // Eigen::Vector3d gps2odo_rpy2 = rotationMatrixToEulerAngles(gps2odo2.block<3,3>(0,0)); //RPY XYZ
-            // Eigen::Vector3d gps2odo_rpy3 = rotationMatrixToEulerAngles(gps2odo3.block<3,3>(0,0)); //RPY XYZ
-            // Eigen::Vector3d vo2odo_rpy1 = rotationMatrixToEulerAngles(vo2odo1.block<3,3>(0,0)); //RPY XYZ
-            // Eigen::Vector3d vo2odo_rpy2 = rotationMatrixToEulerAngles(vo2odo2.block<3,3>(0,0)); //RPY XYZ
-            // Eigen::Vector3d vo2odo_rpy3 = rotationMatrixToEulerAngles(vo2odo3.block<3,3>(0,0)); //RPY XYZ
+        Eigen::Vector3d gps2odo_rpy1 = rotationMatrixToEulerAngles(gps2odo1.block<3,3>(0,0)); //RPY XYZ
+        Eigen::Vector3d gps2odo_rpy2 = rotationMatrixToEulerAngles(gps2odo2.block<3,3>(0,0)); //RPY XYZ
+        Eigen::Vector3d gps2odo_rpy3 = rotationMatrixToEulerAngles(gps2odo3.block<3,3>(0,0)); //RPY XYZ
+        Eigen::Vector3d vo2odo_rpy1 = rotationMatrixToEulerAngles(vo2odo1.block<3,3>(0,0)); //RPY XYZ
+        Eigen::Vector3d vo2odo_rpy2 = rotationMatrixToEulerAngles(vo2odo2.block<3,3>(0,0)); //RPY XYZ
+        Eigen::Vector3d vo2odo_rpy3 = rotationMatrixToEulerAngles(vo2odo3.block<3,3>(0,0)); //RPY XYZ
 
         //由得到的两个坐标系之间的旋转矩阵，对采取的三个点，可以得到三个旋转矩阵，取其平均值
-        //再将得到的gps->odo的旋转矩阵乘以最新的坐标位姿，得到最新的GPS位姿在odo下的坐标关系，vo同理
+        //再将得到的gps->odo的旋转矩阵乘以最新的坐标位姿，得到最新位姿在odo下的坐标关系，vo同理
         //gps_trans_odo与vo_trans_odo为gps坐标系下的位姿与vo下的位姿在odo下的关系
         Eigen::Matrix4f gps_trans_odo = (gps2odo1+gps2odo2+gps2odo3)/3 * gps_queue_homo->getrear();
         Eigen::Matrix4f vo_trans_odo = (vo2odo1+vo2odo2+vo2odo3)/3 * vo_queue_homo->getrear();
 
-        //除了位姿进行变换，还要对线速度，角速度进行相应的变换
+        //
         Eigen::Vector3f gps_linear,vo_linear;
         Eigen::Vector3f gps_angular,vo_angular;
         gps_linear << gps_msg.twist.twist.linear.x,gps_msg.twist.twist.linear.y,gps_msg.twist.twist.linear.z;
@@ -130,17 +130,16 @@ void fid_calib::odo_sub_cb(const nav_msgs::Odometry::ConstPtr &p)
         vo_angular << vo_msg.twist.twist.angular.x,vo_msg.twist.twist.angular.y,vo_msg.twist.twist.angular.z;
 
         //计算线速度，角速度在odo下的变化 v'= R* v   w' = R * w
-        //线速度，角速度不受平移变换的影响
         Eigen::Vector3f gps_linear_new = gps_trans_odo.block<3,3>(0,0) * gps_linear;
         Eigen::Vector3f gps_angular_new = gps_trans_odo.block<3,3>(0,0) * gps_angular;
         Eigen::Vector3f vo_linear_new = vo_trans_odo.block<3,3>(0,0) * vo_linear;
         Eigen::Vector3f vo_angular_new = vo_trans_odo.block<3,3>(0,0) * vo_angular;
 
-        //由最新的gps->odo,vo->odo的齐次变换矩阵提取旋转矩阵，转换为对应的四元数信息
+
         Eigen::Quaternionf gps_trans_odo_quater(gps_trans_odo.block<3,3>(0,0));
         Eigen::Quaternionf vo_trans_odo_quater(vo_trans_odo.block<3,3>(0,0));
         
-        //由Eigen的四元数得到 wxyz单独的四元数信息并进行赋值操作
+        //由Eigen的四元数得到 wxyz
         gps_msg.pose.pose.orientation.w = gps_trans_odo_quater.coeffs()(0,0);//（w,x,y,z)
         gps_msg.pose.pose.orientation.x = gps_trans_odo_quater.coeffs()(0,1);//（w,x,y,z)
         gps_msg.pose.pose.orientation.y = gps_trans_odo_quater.coeffs()(0,2);//（w,x,y,z)
@@ -183,35 +182,35 @@ void fid_calib::odo_sub_cb(const nav_msgs::Odometry::ConstPtr &p)
     }
 }
 
-// bool isRotationMatirx(Eigen::Matrix3f R)
-// {
-//     double err=1e-6;
-//     Eigen::Matrix3f shouldIdenity;
-//     shouldIdenity=R*R.transpose();
-//     Eigen::Matrix3f I=Eigen::Matrix3f::Identity();
-//     return (shouldIdenity - I).norm() < err;
-// }
+bool isRotationMatirx(Eigen::Matrix3f R)
+{
+    double err=1e-6;
+    Eigen::Matrix3f shouldIdenity;
+    shouldIdenity=R*R.transpose();
+    Eigen::Matrix3f I=Eigen::Matrix3f::Identity();
+    return (shouldIdenity - I).norm() < err;
+}
 
-// Eigen::Vector3d fid_calib::rotationMatrixToEulerAngles(const Eigen::Matrix3f &R)
-// {
-//     assert(isRotationMatirx(R));
-//     double sy = sqrt(R(0,0) * R(0,0) + R(1,0) * R(1,0));
-//     bool singular = sy < 1e-6;
-//     double x, y, z;
-//     if (!singular)
-//     {
-//         x = atan2( R(2,1), R(2,2));
-//         y = atan2(-R(2,0), sy);
-//         z = atan2( R(1,0), R(0,0));
-//     }
-//     else
-//     {
-//         x = atan2(-R(1,2), R(1,1));
-//         y = atan2(-R(2,0), sy);
-//         z = 0;
-//     }
-//     return {x, y, z};
-// }
+Eigen::Vector3d fid_calib::rotationMatrixToEulerAngles(const Eigen::Matrix3f &R)
+{
+    assert(isRotationMatirx(R));
+    double sy = sqrt(R(0,0) * R(0,0) + R(1,0) * R(1,0));
+    bool singular = sy < 1e-6;
+    double x, y, z;
+    if (!singular)
+    {
+        x = atan2( R(2,1), R(2,2));
+        y = atan2(-R(2,0), sy);
+        z = atan2( R(1,0), R(0,0));
+    }
+    else
+    {
+        x = atan2(-R(1,2), R(1,1));
+        y = atan2(-R(2,0), sy);
+        z = 0;
+    }
+    return {x, y, z};
+}
 
 
 
@@ -234,12 +233,27 @@ void fid_calib::cacluate_homo()
 //gps_0 = tt2 * gps_1
 //odo_0 = tx * gps_0
 //通过计算两个传感器采集到的两个点的信息，计算两个传感器之间的齐次变换矩阵
+
+/*
+imu_base <--------------ITib-------------imu2
+|                                          |
+|                                          |
+|                                          |  
+|tx                                        |T
+|                                          |
+|                                          |
+|                                          |
+|                                          |
+odo_base<---------------OTob-------------odo2
+*/
 Eigen::Matrix4f fid_calib::cacluate_trans(const Eigen::Matrix4f &t1, const Eigen::Matrix4f &t2,
                                           const Eigen::Matrix4f &t3, const Eigen::Matrix4f &t4)
 {
-    Eigen::Matrix4f tt1 = t1 * t2.inverse();
-    Eigen::Matrix4f tt2 = t3 * t4.inverse();
-    Eigen::Matrix4f tx = tt1 * t2 *(tt2 * t4).inverse();
+    // Eigen::Matrix4f tt1 = t1 * t2.inverse();
+    // Eigen::Matrix4f tt2 = t3 * t4.inverse();
+    // Eigen::Matrix4f tx = tt1 * t2 *(tt2 * t4).inverse();
+
+    Eigen::Matrix4f tx = t2 * t1.inverse() * t4 * t2.inverse() * t3 * t4.inverse();
     return tx;
     //tx为t3经过变换后到t1的变换矩阵，即t1 = tx * t3//t2 = tx * t4;
 }
