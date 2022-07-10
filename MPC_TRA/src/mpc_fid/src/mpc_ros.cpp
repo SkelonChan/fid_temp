@@ -206,7 +206,7 @@ class mpc_follow
         const double lf = 0.28;
         const double lr = 0.34;
         const double l = 0.62;
-        const double Iz = 170;//Fake!
+        const double Iz = 1.7465;//kgm^2
         const double ccf = 669;//Fake!
         const double ccr = 600;//Fake!
         const double clf = 669;//Fake!
