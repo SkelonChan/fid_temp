@@ -201,13 +201,18 @@ class mpc_follow
     //    ros::Subscriber _ref_path_sub;//参考路径信息，可以写死
         ros::Publisher _vehicle_control_pub;
 
-        const double mass = 30;
+        const double mass = 30.24;//kg
         const double g = 9.8;
-        const double lf = 0.28;
-        const double lr = 0.34;
-        const double l = 0.62;
-        const double Iz = 1.7465;//kgm^2
-        const double ccf = 669;//Fake!
+        const double lf = 0.28;//质心到前轮轴长度 m
+        const double lr = 0.34;//质心到后轮轴长度m
+        const double l = 0.62;//前后轮长度 m
+        const double Iz = 1.7465;//kgm^
+	const double wide = 0.47;//左右轮距m
+	const double dd = 0.23;//轮胎直径 m
+	const double ll = 1; //车体长度 m
+	const double ww = 0.55;//车体宽度m
+	const double hh = 0.4;//车体高度 m
+	const double ccf = 669;//Fake!
         const double ccr = 600;//Fake!
         const double clf = 669;//Fake!
         const double clr = 600;//Fake!
