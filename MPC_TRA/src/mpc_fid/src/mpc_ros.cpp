@@ -207,7 +207,7 @@ class mpc_follow
         const double lr = 0.34;//质心到后轮轴长度m
         const double l = 0.62;//前后轮长度 m
         const double Iz = 1.7465;//kgm^
-	const double wide = 0.47;//左右轮距m
+	const double wid = 0.47;//左右轮距m
 	const double dd = 0.23;//轮胎直径 m
 	const double ll = 1; //车体长度 m
 	const double ww = 0.55;//车体宽度m
