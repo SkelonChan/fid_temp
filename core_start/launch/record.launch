@@ -1,0 +1,17 @@
+<launch>
+    <node pkg="rosbag" type="record" 
+        name="bag_record" 
+        args="base_value
+              motor
+              motor_base
+              ros_encoder
+              servo
+              servo_base
+              wheel_odom
+              heading
+              fix
+              vel
+              zed2/zed_node/imu/data
+              zed2/zed_node/odom"/>
+
+</launch>

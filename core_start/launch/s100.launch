@@ -1,0 +1,43 @@
+<launch>
+    <!-- 开启编码器 -->
+    <node pkg="rosserial_python" type="serial_node.py" name= "encoder">
+        <param name = "port"  value="/dev/Encoder"/>
+        <param name = "baund" value="57600"/>
+    </node>
+    <!-- 开启底层电机控制 -->
+    <node pkg="rosserial_python" type="serial_node.py" name = "Motor_servo">
+        <param name = "port" value= "/dev/Motor_servo"/>
+        <param name = "baund" value = "57600" />
+    </node>
+        <!-- 开启接收机 -->
+    <node pkg="rosserial_python" type="serial_node.py" name = "Router">
+        <param name = "port" value= "/dev/Router"/>
+        <param name = "baund" value = "57600" />
+    </node>
+    <!-- 开启底层控制转换 -->
+    <node pkg = "base_control" type = "up2base_control" name = "up2base_control">
+        <param name = "limit_pwm" value="80"/>
+    </node>
+    <!-- 开启编码器转里程计转换 -->
+    <node pkg = "transf" type = "wheel_odom" name = "enc2odom_node">
+    </node>
+    <!-- 测试节点 -->
+    <node pkg = "test" type ="test1" name ="test">
+        <param name ="time_value" value ="30"></param>
+        <param name ="motor_value" value ="1535"></param>
+        <param name ="servo_value" value ="100"></param>
+    </node>
+
+    <!-- 开启GPS坐标转换节点 ,由GPS信息转换为gps_odom -->
+    <node pkg = "gps2enu" type = "gps2odom" name = "gps2enu">
+    </node>
+    <!-- 开启ZED模块0 -->
+    <include file="$(find zed_wrapper)/launch/zed2.launch"></include>
+        <!-- 开启GPS的接收节点 -->
+    <include file = "$(find nmea_navsat_driver)/launch/nmea_serial_driver.launch"></include>
+    <!-- 开启数据记录 -->
+    <include file ="$(find core_start)/launch/record.launch"> </include>
+
+
+
+</launch>
